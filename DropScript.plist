@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//APPLE//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>DropScript</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/bin/DropScript.sh</string>
+	</array>
+	<key>StartInterval</key>
+	<integer>10</integer>
+	
+	<!-- default time is 30 mins 1800 sec -->
+</dict>
+</plist>
