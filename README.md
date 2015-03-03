@@ -14,6 +14,7 @@ However, if they do decide to clear their conscience then we wipe all data on th
 ##Dependencies
 - [CakePHP](http://cakephp.org/)
 - rharder's [imagesnap](https://github.com/rharder/imagesnap)
+- [Dropbox](https://www.dropbox.com/developers)
 - [JustGiving](http://pages.justgiving.com/developer)
 - [Braintree](https://developers.braintreepayments.com/javascript+node)
 - [SendGrid](https://sendgrid.com/developers)
