@@ -7,7 +7,7 @@ This information is then synced with our servers and viewable online where a use
 
 We felt the thief should have the option to redeem themselves, so we included: a method for the thief to pay it forward(using [JustGiving](https://home.justgiving.com/)) to donate a set amount to charities, or paying back a set amount for the device(using [Braintree](https://www.braintreepayments.com/)).
 
-If thief fails to do either, the system is set up to shutdown after 30 minutes. On reboot the process begins again, essentially pestering the user until they submit.
+If thief fails to do either, the system is set up to shutdown after 30 minutes. On reboot the process begins again, essentially pestering the thief until they submit.
 
 However, if they do decide to clear their conscience then we wipe all data on the machine and the computer is now theirs. An email is then sent through [SendGrid](https://sendgrid.com/) to the original user notifying them of the new user’s payment action.
 
