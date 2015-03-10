@@ -6,111 +6,140 @@ App::import('Controller', 'Users');
 class DevicesController extends AppController {
 	public $helper = array('Html', 'Form');
 	var $uses = array('Device', 'Mug', 'Log', 'User');
+	public $access_token = 'YOUR_DROPBOX_ACCESS_TOKEN';
 	
-	public function grabRecentFiles($id = null) {
-		$this->autoRender = false;
-		
-		$HttpSocket = new HttpSocket();
-		$results = $HttpSocket->get('https://api-content.dropbox.com/1/files/auto/mugshot.png',
-			array(
-				'access_token' => 'YOUR_ACCESS_TOKEN'
-			)
+	public function beforeFilter() {
+        parent::beforeFilter();
+        $this->Auth->allow('grabRecentFiles', 'lockReleased', 'isPaidFor');
+    }
+	
+	/*
+		add
+			- allows for new devices
+			- currently locked to one device
+	*/
+	public function add() {
+		$brands = array(
+			'Acer',
+			'Apple',
+			'Asus',
+			'Dell',
+			'HP',
+			'Lenovo',
+			'MSI',
+			'Samsung',
+			'Sony',
+			'ThinkPad',
+			'Toshiba'
 		);
 		
-		$date = date('Y_m_d_H.i');
-		$imageName = 'mugshot_'.$date.'.png';
-		$fp = fopen(WWW_ROOT.'mugshots/'.$imageName, 'a');
-		fwrite($fp, $results);
-		fclose($fp);
-		
-		$this->Mug->create();
-		$data = array('user_id' => $id, 'name' => $imageName);
-		$this->Mug->save($data);
-		
-		$HttpSocket = new HttpSocket();
-		$results = $HttpSocket->get('https://api-content.dropbox.com/1/files/auto/NetworkInfo.txt',
-			array(
-				'access_token' => 'YOUR_ACCESS_TOKEN'
-			)
-		);
-		
-		$logName = 'NetworkInfo_'.$date.'.txt';
-		$fp = fopen(WWW_ROOT.'logs/'.$logName, 'a');
-		fwrite($fp, $results);
-		fclose($fp);
-		
-		$this->Log->create();
-		$data = array('user_id' => $id, 'name' => $logName);
-		$this->Log->save($data);
+		if($this->request->is('post')) {
+			$this->request->data['Device']['brand'] = $brands[$this->request->data['Device']['brand']];
+			$this->request->data['Device']['user_id'] = $this->Auth->user('id');
+            $this->Device->create();
+            if ($this->Device->save($this->request->data)) {
+                $this->Session->setFlash(__('Your post has been saved.'));
+                return $this->redirect(array('action' => 'index'));
+            }
+            $this->Session->setFlash(__('Unable to add your post.'));
+        }
 	}
 	
-	public function release($id = null) {
+	/*
+		add
+			- edits a device
+			- TODO
+	*/
+	public function edit() {
+		
+	}
+	
+	/*
+		grabContent
+			- retrieves files from the Images and Logs directories
+	*/
+	public function grabContent($type = null) {
+		$HttpSocket = new HttpSocket();
+		$results = $HttpSocket->get('https://api.dropbox.com/1/metadata/auto/'.$type,
+			array(
+				'access_token' => $this->access_token
+			)
+		);
+		
+		$results = json_decode($results->body);
+		$results = array_reverse((array) $results->contents);
+		return $results;
+	}
+	
+	/*
+		grabRecent
+			- retrieves last image taken's thumbnail or recent log
+			- Changed to thumbnail to speed up page load
+	*/
+	public function grabRecent($type = null, $object = null) {
+		$recentPath = $object[0]->path;
+		$HttpSocket = new HttpSocket();
+
+		if($type == 'Image') {
+			$image = $HttpSocket->get('https://api-content.dropbox.com/1/thumbnails/auto'.$recentPath,
+				array(
+					'access_token' => $this->access_token,
+					'format' => 'png',
+					'size' => 'l'
+				)
+			);
+			
+			return base64_encode($image->body);	
+		} else if($type == 'Log') {
+			$log = $HttpSocket->get('https://api-content.dropbox.com/1/files/auto'.$recentPath,
+				array(
+					'access_token' => $this->access_token
+				)
+			);
+	
+			return json_decode($log->body);
+		}
+	}
+	
+	/*
+		index
+			- front facing view of your device
+	*/
+	public function index() {
+		$images = $this->grabContent('Images');
+		$recentSnapshot = $this->grabRecent('Image', $images);
+		
+		$logs = $this->grabContent('Logs');
+		$recentLog = $this->grabRecent('Log', $logs);
+		
+		$devices = $this->Device->find('all', array(
+        	'conditions' => array('Device.user_id' => $this->Auth->user('id'))
+		));
+
+		$this->set('devices', $devices);
+		$this->set('recentSnapshot', $recentSnapshot);
+		$this->set('recentLog', $recentLog);
+		$this->set('ip', $this->request->clientIp());
+	}
+	
+	/*
+		release
+			- flags the device as being found
+			- Manual call for Pebble
+	*/
+	public function release() {
 		$this->autoRender = false;
-		$device = $this->Device->findById($id);
+		//TODO
+		$device = $this->Device->findById(15);
 		$this->Device->id = $device['Device']['id'];
 		$this->Device->saveField('status', 0);
 	}
 	
-	public function lockReleased($id = null) {
-		$this->autoRender = false;
-		
-		$device = $this->Device->findById($id);
-		
-		if($device['Device']['status']) {
-			return 'false';	//unsafe
-		} else {
-			return 'true'; //safe
-		}
-	}
-	
-	public function isPaidFor($id) {
-		$this->autoRender = false;
-		
-		$device = $this->Device->findById($id);
-		
-		if($device['Device']['paid_for']) {
-			return 'false';	//unsafe
-		} else {
-			return 'true'; //safe
-		}
-	}
-	
-	//Check if System is locked
-	public function checkLock() {
-		$this->autoRender = false;
-		
-		$HttpSocket = new HttpSocket();
-		$results = $HttpSocket->get('https://api.dropbox.com/1/search/auto/',
-			array(
-				'query' => 'SystemIsLocked',
-				'access_token' => 'YOUR_ACCESS_TOKEN'
-			)
-		);
-		
-		if(empty(json_decode($results->body))) {
-			return false;
-		}
-		
-		return true;
-	}
-	
-	public function setLock($id = null) {
-		$this->autoRender = false;
-		
-		$device = $this->Device->findById($id);
-		$this->Device->id = $device['Device']['id'];		
-		
-		$Users = new UsersController;
-		
-		if($device['Device']['status']) {
-			$this->Device->saveField('status', 0);	//safe
-			$Users->sendEmail("Stopped Tracking", "We have stopped tracking ".$device['Device']['name']."'s location.");
-		} else {
-			$this->Device->saveField('status', 1); //unsafe
-			$Users->sendEmail("Starting Tracking", "We are now tracking ".$device['Device']['name']."'s location! Make sure to visit Droplock to see more details!");
-		}
-	}
-	
+	/*
+		clearLock
+			- flags the device as being found and pid for
+			- TODO
+	*/
 	public function clearLock($id = null) {
 		$this->autoRender = false;
 		
@@ -120,97 +149,58 @@ class DevicesController extends AppController {
 		$this->Device->saveField('paid_for', 0);	//safe
 	}
 
-	public function my_devices($id = null) {
-		$devices = $this->Device->find('all', array(
-        	'conditions' => array('Device.user_id' => $id)
-		));
+	/*
+		lockReleased
+			- Check for bash script to see if device is still locked
+	*/
+	public function lockReleased() {
+		$this->autoRender = false;
 		
-		$mugShots = $this->Mug->find('all', array(
-        	'conditions' => array('Mug.user_id' => $id),
-        	'order' => array('Mug.created' => 'desc')
-        	
-		));	
+		$device = $this->Device->findById(15);
 		
-		$Logs = $this->Log->find('all', array(
-        	'conditions' => array('Log.user_id' => $id),
-        	'order' => array('Log.created' => 'desc')
-		));
-		
-		$cleanLogs = array();
-		
-		foreach($Logs as $log) {
-			$filepath = WWW_ROOT.'logs/'.$log['Log']['name'];
-			
-			$date = explode('_', $log['Log']['name']);
-			$time = explode('.', $date[4]);
-			
-			$timeStamp = $date['2'].'/'.$date['3'].'/'.$date['1'].' '.$time[0].':'.$time[1];
-			
-			$longLat = '';
-			$contents = file_get_contents($filepath);
-			
-			$pattern = preg_quote('loc', '/');
-			$pattern = "/^.*$pattern.*\$/m";
-			if(preg_match_all($pattern, $contents, $matches)){
-			   $longLat = implode("\n", $matches[0]);
-			}
-			
-			$longLat = explode('"', $longLat);
-			$longLats = $longLat[3];
-			
-			$city = array();
-			$contents = file_get_contents($filepath);
-			$pattern = preg_quote('city', '/');
-			$pattern = "/^.*$pattern.*\$/m";
-			if(preg_match_all($pattern, $contents, $matches)){
-			   $city = implode("\n", $matches[0]);
-			}
-			$city = explode('"', $city);
-			$city = $city[3];
-			
-			$region = array();
-			$contents = file_get_contents($filepath);
-			$pattern = preg_quote('region', '/');
-			$pattern = "/^.*$pattern.*\$/m";
-			if(preg_match_all($pattern, $contents, $matches)){
-			   $region = implode("\n", $matches[0]);
-			}
-			$region = explode('"', $region);
-			$region = $region[3];
-			
-			
-			$ip = array();
-			$contents = file_get_contents($filepath);
-			$pattern = preg_quote('ip', '/');
-			$pattern = "/^.*$pattern.*\$/m";
-			if(preg_match_all($pattern, $contents, $matches)){
-			   $ip = implode("\n", $matches[0]);
-			}
-			$ip = explode('"', $ip);
-			$ip = $ip[3];
-			
-			$ssid = array();
-			$contents = file_get_contents($filepath);
-			$pattern = preg_quote('SSID', '/');
-			$pattern = "/^.*$pattern.*\$/m";
-			if(preg_match_all($pattern, $contents, $matches)){
-			   $ssid = implode("\n", $matches[0]);
-			}
-			$ssid = explode(':', $ssid);
-			$ssid = $ssid[sizeof($ssid) - 1];
-			
-			array_push($cleanLogs, array(
-				'longLat' => $longLats,
-				'city' => $city,
-				'region' => $region,
-				'ip' => $ip,
-				'ssid' => $ssid,
-				'dateTime' => $timeStamp
-			));
+		if($device['Device']['status']) {
+			return 'false';	//unsafe
+		} else {
+			return 'true'; //safe
 		}
+	}
+	
+	/*
+		isPaidFor
+			- Check for bash script to see if device is still locked
+	*/
+	public function isPaidFor() {
+		$this->autoRender = false;
 		
-		$this->set('main', $devices[0]);
-		$this->set('mugShots', $mugShots);
-		$this->set('cleanLogs', $cleanLogs);
+		//TODO
+		$device = $this->Device->findById(15);
+		
+		if($device['Device']['paid_for']) {
+			return 'false';	//unsafe
+		} else {
+			return 'true'; //safe
+		}
+	}
+	
+	/*
+		setLock
+			- Lock for front-facing api
+			- TODO
+	*/
+	public function setLock($id = null, $ip = null) {
+		$this->autoRender = false;
+		
+		$device = $this->Device->findById($id);
+		$this->Device->id = $device['Device']['id'];		
+		
+		$Users = new UsersController;
+		
+		if($device['Device']['status']) {
+			$this->Device->saveField('status', 0);	//safe
+			$Users->sendEmail("Stopped Tracking", "We have stopped tracking ".$device['Device']['name']."'s location.", $ip);
+		} else {
+			$this->Device->saveField('status', 1); //unsafe
+			$Users->sendEmail("Starting Tracking", "We are now tracking ".$device['Device']['name']."'s location! Make sure to visit Droplock to see more details!", $ip);
+		}
 	}
 }
