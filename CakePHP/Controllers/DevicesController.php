@@ -15,40 +15,32 @@ class DevicesController extends AppController {
 	
 	/*
 		add
-			- allows for new devices
-			- currently locked to one device
+		- allows for new devices
+		- currently locked to one device
 	*/
 	public function add() {
 		$brands = array(
-			'Acer',
-			'Apple',
-			'Asus',
-			'Dell',
-			'HP',
-			'Lenovo',
-			'MSI',
-			'Samsung',
-			'Sony',
-			'ThinkPad',
-			'Toshiba'
+			'Acer', 'Apple', 'Asus', 'Dell', 'HP', 'Lenovo', 'MSI', 'Samsung', 'Sony', 'ThinkPad', 'Toshiba'
 		);
 		
 		if($this->request->is('post')) {
 			$this->request->data['Device']['brand'] = $brands[$this->request->data['Device']['brand']];
 			$this->request->data['Device']['user_id'] = $this->Auth->user('id');
-            $this->Device->create();
-            if ($this->Device->save($this->request->data)) {
-                $this->Session->setFlash(__('Your post has been saved.'));
-                return $this->redirect(array('action' => 'index'));
-            }
-            $this->Session->setFlash(__('Unable to add your post.'));
-        }
+            		
+            		$this->Device->create();
+            		
+            		if ($this->Device->save($this->request->data)) {
+                		$this->Session->setFlash(__('Your post has been saved.'));
+                		return $this->redirect(array('action' => 'index'));
+            		}
+            		$this->Session->setFlash(__('Unable to add your post.'));
+        	}
 	}
 	
 	/*
 		add
-			- edits a device
-			- TODO
+		- edits a device
+		- TODO
 	*/
 	public function edit() {
 		
@@ -56,7 +48,7 @@ class DevicesController extends AppController {
 	
 	/*
 		grabContent
-			- retrieves files from the Images and Logs directories
+		- retrieves files from the Images and Logs directories
 	*/
 	public function grabContent($type = null) {
 		$HttpSocket = new HttpSocket();
@@ -73,8 +65,8 @@ class DevicesController extends AppController {
 	
 	/*
 		grabRecent
-			- retrieves last image taken's thumbnail or recent log
-			- Changed to thumbnail to speed up page load
+		- retrieves last image taken's thumbnail or recent log
+		- Changed to thumbnail to speed up page load
 	*/
 	public function grabRecent($type = null, $object = null) {
 		$recentPath = $object[0]->path;
@@ -103,7 +95,7 @@ class DevicesController extends AppController {
 	
 	/*
 		index
-			- front facing view of your device
+		- front facing view of your device
 	*/
 	public function index() {
 		$images = $this->grabContent('Images');
@@ -113,7 +105,9 @@ class DevicesController extends AppController {
 		$recentLog = $this->grabRecent('Log', $logs);
 		
 		$devices = $this->Device->find('all', array(
-        	'conditions' => array('Device.user_id' => $this->Auth->user('id'))
+        		'conditions' => array(
+        			'Device.user_id' => $this->Auth->user('id')
+        		)
 		));
 
 		$this->set('devices', $devices);
@@ -124,12 +118,13 @@ class DevicesController extends AppController {
 	
 	/*
 		release
-			- flags the device as being found
-			- Manual call for Pebble
+		- flags the device as being found
+		- Manual call for Pebble
+		- TODO
 	*/
 	public function release() {
 		$this->autoRender = false;
-		//TODO
+		
 		$device = $this->Device->findById(15);
 		$this->Device->id = $device['Device']['id'];
 		$this->Device->saveField('status', 0);
@@ -137,8 +132,8 @@ class DevicesController extends AppController {
 	
 	/*
 		clearLock
-			- flags the device as being found and pid for
-			- TODO
+		- flags the device as being found and pid for
+		- TODO
 	*/
 	public function clearLock($id = null) {
 		$this->autoRender = false;
@@ -146,18 +141,17 @@ class DevicesController extends AppController {
 		$device = $this->Device->findById($id);
 		$this->Device->id = $device['Device']['id'];	
 		$this->Device->saveField('status', 0);	//safe
-		$this->Device->saveField('paid_for', 0);	//safe
+		$this->Device->saveField('paid_for', 0); //safe
 	}
 
 	/*
 		lockReleased
-			- Check for bash script to see if device is still locked
+		- Check for bash script to see if device is still locked
 	*/
 	public function lockReleased() {
 		$this->autoRender = false;
 		
 		$device = $this->Device->findById(15);
-		
 		if($device['Device']['status']) {
 			return 'false';	//unsafe
 		} else {
@@ -167,14 +161,13 @@ class DevicesController extends AppController {
 	
 	/*
 		isPaidFor
-			- Check for bash script to see if device is still locked
+		- Check for bash script to see if device is still locked
+		- TODO
 	*/
 	public function isPaidFor() {
 		$this->autoRender = false;
 		
-		//TODO
 		$device = $this->Device->findById(15);
-		
 		if($device['Device']['paid_for']) {
 			return 'false';	//unsafe
 		} else {
@@ -184,17 +177,15 @@ class DevicesController extends AppController {
 	
 	/*
 		setLock
-			- Lock for front-facing api
-			- TODO
+		- Lock for front-facing api
+		- TODO
 	*/
 	public function setLock($id = null, $ip = null) {
 		$this->autoRender = false;
-		
-		$device = $this->Device->findById($id);
-		$this->Device->id = $device['Device']['id'];		
-		
 		$Users = new UsersController;
 		
+		$device = $this->Device->findById($id);
+		$this->Device->id = $device['Device']['id'];
 		if($device['Device']['status']) {
 			$this->Device->saveField('status', 0);	//safe
 			$Users->sendEmail("Stopped Tracking", "We have stopped tracking ".$device['Device']['name']."'s location.", $ip);
