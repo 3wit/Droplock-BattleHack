@@ -47,6 +47,33 @@ class DevicesController extends AppController {
 	}
 	
 	/*
+		index
+		- front facing view of your device
+	*/
+	public function index() {
+		if($this->lockReleased() == 'false') {
+			$images = $this->grabContent('Images');
+			$recentSnapshot = $this->grabRecent('Image', $images);
+			
+			$logs = $this->grabContent('Logs');
+			$recentLog = $this->grabRecent('Log', $logs);
+			
+			$this->set('recentSnapshot', $recentSnapshot);
+			$this->set('recentLog', $recentLog);
+		}
+		
+		
+		$devices = $this->Device->find('all', array(
+        		'conditions' => array(
+        			'Device.user_id' => $this->Auth->user('id')
+        		)
+		));
+
+		$this->set('devices', $devices);
+		$this->set('ip', $this->request->clientIp());
+	}
+	
+	/*
 		grabContent
 		- retrieves files from the Images and Logs directories
 	*/
@@ -94,29 +121,6 @@ class DevicesController extends AppController {
 	}
 	
 	/*
-		index
-		- front facing view of your device
-	*/
-	public function index() {
-		$images = $this->grabContent('Images');
-		$recentSnapshot = $this->grabRecent('Image', $images);
-		
-		$logs = $this->grabContent('Logs');
-		$recentLog = $this->grabRecent('Log', $logs);
-		
-		$devices = $this->Device->find('all', array(
-        		'conditions' => array(
-        			'Device.user_id' => $this->Auth->user('id')
-        		)
-		));
-
-		$this->set('devices', $devices);
-		$this->set('recentSnapshot', $recentSnapshot);
-		$this->set('recentLog', $recentLog);
-		$this->set('ip', $this->request->clientIp());
-	}
-	
-	/*
 		release
 		- flags the device as being found
 		- Manual call for Pebble
@@ -149,7 +153,7 @@ class DevicesController extends AppController {
 		- Check for bash script to see if device is still locked
 	*/
 	public function lockReleased() {
-		$this->autoRender = false;
+		//$this->autoRender = false;
 		
 		$device = $this->Device->findById(15);
 		if($device['Device']['status']) {
@@ -191,7 +195,8 @@ class DevicesController extends AppController {
 			$Users->sendEmail("Stopped Tracking", "We have stopped tracking ".$device['Device']['name']."'s location.", $ip);
 		} else {
 			$this->Device->saveField('status', 1); //unsafe
-			$Users->sendEmail("Starting Tracking", "We are now tracking ".$device['Device']['name']."'s location! Make sure to visit Droplock to see more details!", $ip);
+			$Users->sendEmail("Started Tracking", "We are now tracking ".$device['Device']['name']."'s location! Make sure to visit Droplock to see more details!", $ip);
 		}
 	}
 }
+
