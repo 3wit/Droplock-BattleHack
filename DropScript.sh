@@ -3,16 +3,18 @@
 #Battlehack 2015 - March - 1
 
 #variables
-dropDir=$HOME/Dropbox/Apps/.Droplock
-airport="/System/Library/PrivateFrameworks/Apple80211.framework/Versions/A/Resources/airport -I"
-isLockReleased="SERVER PATH"
-isPaidFor="SERVER PATH"
-grabRecentFiles="SERVER PATH"
-paymentMethods="SERVER PATH"
+dropDir=$HOME/Dropbox/Apps/Droplock
+airport='/System/Library/PrivateFrameworks/Apple80211.framework/Versions/A/Resources/airport -I | sed -e "s/^  *SSID: //p" -e d'
+#need to get username and password, save that to a plist/maybe implement the two-part auth here, avoid saving any passwords
+server="SERVER PATH"
+isLockReleased="$server/lockReleased"
+isPaidFor="$server/isPaidFor"
+grabRecentFiles="$server/grabRecentFiles"
+#paymentMethods="SERVER PATH"
 #Year - Month - Day - Time
 dateTime=$(date +"%Y-%m-%d_%H.%M.%S")
-getAirportCall="$airport > $dropDir/NetworkInfo_$dateTime.txt"
-getExternalIPCall="curl ipinfo.io/json >> $dropDir/NetworkInfo_$dateTime.txt"
+#getAirportCall="$airport > $dropDir/Logs/NetworkInfo_$dateTime.txt"
+getExternalIPCall="curl ipinfo.io/json > $dropDir/Logs/NetworkInfo_$dateTime.txt"
 warmupTime=1.00
 
 #SUMMARY:
@@ -25,8 +27,7 @@ SetupDirectories(){
 	if [ ! -d $dropDir ]
 	then 
 		mkdir $HOME/Dropbox/Apps
-		# we dont make the .Droplock folder because that is handled by Dropbox
-		mkdir $dropDir
+		# we dont make the Droplock folder because that is handled by Dropbox
 		mkdir $dropDir/Images
 		mkdir $dropDir/Logs
 		#imagesnap lives in local folder for now
@@ -36,19 +37,13 @@ SetupDirectories(){
 
 TakePicture(){
 	#TAKE PICTURE
-	rm $dropDir/*.png
-	eval $dropDir/imagesnap -w $warmupTime $dropDir/mugshot_$dateTime.png
-	cp $dropDir/*.png $dropDir/Images
-	mv $dropDir/mugshot_$dateTime.png $dropDir/mugshot.png	#rename the timestamped file on top level
+	$dropDir/imagesnap -w $warmupTime $dropDir/Images/snapshot_$dateTime.png
 }
 
 TakeLog(){
 	#TAKE LOG
-	rm $dropDir/*.txt
 	eval $getAirportCall
 	eval $getExternalIPCall
-	cp $dropDir/NetworkInfo_$dateTime.txt $dropDir/Logs
-	mv $dropDir/NetworkInfo_$dateTime.txt $dropDir/NetworkInfo.txt
 }
 
 HandleUserPaid(){
@@ -80,8 +75,9 @@ then
 	TakeLog
 	
 	#NOTIFY SERVER
-	sleep 5 #we sleep to ensure all files are been synced with dropbox first
-    curl $grabRecentFiles
+	#we sleep to ensure all files are been synced with dropbox first
+	#sleep 20
+    #curl $grabRecentFiles
 
 else
 	echo "lock deactivated"
